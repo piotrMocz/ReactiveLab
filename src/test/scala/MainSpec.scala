@@ -3,13 +3,68 @@ import akka.testkit.{TestProbe, ImplicitSender, TestKit}
 import org.scalatest.{BeforeAndAfterAll, WordSpecLike}
 import scala.concurrent.duration._
 
+import language.postfixOps
+
+import actors.{Seller, AuctionSearch, Auction}
+import data._
+
 class MainSpec extends TestKit(ActorSystem("AuctionSpec")) with ImplicitSender with WordSpecLike with BeforeAndAfterAll {
 
   override def afterAll(): Unit = {
     system.terminate()
   }
 
-  "Auction System" must {
+  "actors.Auction System" must {
+
+    "notify seller when auction had no winner" in {
+      val aucSearch = system.actorOf(Props(classOf[AuctionSearch], List.empty[ActorRef]))
+      val seller = system.actorOf(Props[Seller])
+
+      within(51 seconds) {
+        aucSearch ! AddAuction("Sprzedam Opla", 42.0f)
+
+        expectMsgPF(hint = "any auction list") {
+          case SearchResult(_) => true
+        }
+
+        expectNoMsg(49 seconds)
+
+        expectMsg(NotSold)
+      }
+    }
+
+    "notify seller and buyer when there is a winner" in {
+      val seller = TestProbe("seller")
+      val auction = system.actorOf(Props(classOf[Auction], Item(13.0f, seller.ref)), "A1")
+      val buyer = TestProbe("buyer") // system.actorOf(Props(classOf[actors.Buyer], List(auction), "Henryk"))
+
+      within(51 seconds) {
+        buyer.send(auction, Bid(14.0f, buyer.ref))
+
+        seller.expectMsgPF(max=50 seconds) {
+          case Sold(_, _) => true
+        }
+        buyer.expectMsg(max=50 seconds, obj=YouWon)
+      }
+    }
+
+    "award the win to the highest bidder" in {
+      val seller = TestProbe("seller")
+      val auction = system.actorOf(Props(classOf[Auction], Item(13.0f, seller.ref)), "A1")
+      val buyer1 = TestProbe("buyer1")
+      val buyer2 = TestProbe("buyer2")
+
+      within(51 seconds) {
+        buyer1.send(auction, Bid(14.0f, buyer1.ref))
+        buyer2.send(auction, Bid(15.0f, buyer2.ref))
+
+        buyer2.expectMsg(max=50 seconds, obj=YouWon)
+      }
+    }
+  }
+
+
+  "actors.Auction search" must {
 
     "allow adding auctions" in {
       val aucSearch = system.actorOf(Props(classOf[AuctionSearch], List.empty[ActorRef]))
@@ -33,39 +88,6 @@ class MainSpec extends TestKit(ActorSystem("AuctionSpec")) with ImplicitSender w
       }
     }
 
-    "notify seller when auction had no winner" in {
-      val aucSearch = system.actorOf(Props(classOf[AuctionSearch], List.empty[ActorRef]))
-      val seller = system.actorOf(Props[Seller])
-
-
-      within(51 seconds) {
-        aucSearch ! AddAuction("Sprzedam Opla", 42.0f)
-
-        expectMsgPF(hint = "any auction list") {
-          case SearchResult(_) => true
-        }
-
-        expectNoMsg(49 seconds)
-
-        expectMsg(NotSold)
-      }
-    }
-
-    "notify seller and buyer when there is a winner" in {
-      val aucSearch = system.actorOf(Props(classOf[AuctionSearch], List.empty[ActorRef]))
-      val seller = TestProbe("seller")
-      val auction = system.actorOf(Props(classOf[Auction], Item(13.0f, seller.ref)), "A1")
-      val buyer = TestProbe("buyer") // system.actorOf(Props(classOf[Buyer], List(auction), "Henryk"))
-
-      within(51 seconds) {
-        buyer.send(auction, Bid(14.0f, buyer.ref))
-
-        seller.expectMsgPF(max=50 seconds) {
-          case Sold(_, _) => true
-        }
-        buyer.expectMsg(max=50 seconds, obj=YouWon)
-      }
-    }
   }
 
 }
