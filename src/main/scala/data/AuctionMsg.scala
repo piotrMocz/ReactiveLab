@@ -18,3 +18,4 @@ case class Search(keyword: String) extends AuctionMsg
 case class SearchResult(result: List[ActorRef]) extends AuctionMsg
 case class MakeAuction(title: String, minPrice: Float) extends AuctionMsg
 case class AddAuction(title: String, minPrice: Float) extends AuctionMsg
+case class NewHighestOffer(newOffer: Float, bidder: ActorRef, auction: ActorRef) extends AuctionMsg

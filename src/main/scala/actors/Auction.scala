@@ -1,6 +1,6 @@
 package actors
 
-import akka.actor.FSM
+import akka.actor.{ActorRef, FSM}
 import scala.concurrent.duration._
 
 import data._
@@ -11,22 +11,28 @@ import data._
  */
 
 
-class Auction(itemInit: Item) extends FSM[AuctionState, AuctionData] {
+class Auction(var itemInit: Item, var bidders: List[ActorRef]) extends FSM[AuctionState, AuctionData] {
+  def this(ii: Item) = this(ii, List.empty[ActorRef])
+
   println("Creating the actors.Auction state machine")
   startWith(Created, NoBid(itemInit))
 
-  when(Created, stateTimeout = 10 seconds) {
+  when(Created, stateTimeout = scale(10 seconds)) {
     case Event(Bid(amount, bidder), NoBid(item)) =>
       println("[Created] checking the minimum offer...")
       if (amount < item.minPrice) stay using NoBid(item)
-      else goto(Activated) using Bids(amount, bidder, 1, item)
+      else {
+        // add bidder to the list:
+        bidders = bidder :: bidders
+        goto(Activated) using Bids(amount, bidder, 1, item)
+      }
 
     case Event(StateTimeout, NoBid(item)) =>
       println("[Created] timed out with no winner...")
       goto(Ignored) using NoBid(item)
   }
 
-  when(Ignored, stateTimeout = 30 seconds) {
+  when(Ignored, stateTimeout = scale(30 seconds)) {
     case Event(Relist, NoBid(item)) =>
       println("[Ignored] Relisting...")
       goto(Created) using NoBid(item)
@@ -40,11 +46,18 @@ class Auction(itemInit: Item) extends FSM[AuctionState, AuctionData] {
       stay using st
   }
 
-  when(Activated, stateTimeout = 10 seconds) {
+  when(Activated, stateTimeout = scale(10 seconds)) {
     case Event(Bid(amount, bidder), Bids(bestBid, bestBidder, cnt, item)) =>
       println("[Activated] checking if the offer is better...")
+
       if (amount <= bestBid) stay using Bids(bestBid, bestBidder, cnt, item)
-      else goto(Activated) using Bids(amount, bidder, cnt+1, item)
+      else {
+        // add bidder if not in the list:
+        if (!bidders.contains(bidder)) bidders = bidder :: bidders
+        // notify bidders of a new highest offer:
+        bidders.foreach { bdr => bdr ! NewHighestOffer(amount, bidder, self) }
+        goto(Activated) using Bids(amount, bidder, cnt+1, item)
+      }
 
     case Event(StateTimeout, Bids(bestBid, bestBidder, cnt, item)) =>
       println("[Activated] we have a winner!")
@@ -55,7 +68,7 @@ class Auction(itemInit: Item) extends FSM[AuctionState, AuctionData] {
       goto(ItemSold) using NoWinner(item)
   }
 
-  when(ItemSold, stateTimeout = 10 seconds) {
+  when(ItemSold, stateTimeout = scale(10 seconds)) {
     case Event(StateTimeout, Winner(bestBid, bestBidder, bidCnt, item)) =>
       println("[Sold] SOLD! Contacting both parties...")
       item.seller ! Sold(bestBid, bestBidder)
