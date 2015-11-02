@@ -20,14 +20,14 @@ class MainSpec extends TestKit(ActorSystem("AuctionSpec")) with ImplicitSender w
       val aucSearch = system.actorOf(Props(classOf[AuctionSearch], List.empty[ActorRef]))
       val seller = system.actorOf(Props[Seller])
 
-      within(scale(51 seconds)) {
+      within(51 seconds) {
         aucSearch ! AddAuction("Sprzedam Opla", 42.0f)
 
         expectMsgPF(hint = "any auction list") {
           case SearchResult(_) => true
         }
 
-        expectNoMsg(scale(49 seconds))
+        expectNoMsg(49 seconds)
 
         expectMsg(NotSold)
       }
@@ -38,13 +38,17 @@ class MainSpec extends TestKit(ActorSystem("AuctionSpec")) with ImplicitSender w
       val auction = system.actorOf(Props(classOf[Auction], Item(13.0f, seller.ref)), "A1")
       val buyer = TestProbe("buyer") // system.actorOf(Props(classOf[actors.Buyer], List(auction), "Henryk"))
 
-      within(scale(51 seconds)) {
+      within(51 seconds) {
         buyer.send(auction, Bid(14.0f, buyer.ref))
 
-        seller.expectMsgPF(max=scale(50 seconds)) {
+        buyer.expectMsgPF() {
+          case NewHighestOffer(_, _, _) => true
+        }
+
+        seller.expectMsgPF(max=50 seconds) {
           case Sold(_, _) => true
         }
-        buyer.expectMsg(max=scale(50 seconds), obj=YouWon)
+        buyer.expectMsg(max=50 seconds, obj=YouWon)
       }
     }
 
@@ -61,7 +65,7 @@ class MainSpec extends TestKit(ActorSystem("AuctionSpec")) with ImplicitSender w
         buyer2.expectMsgPF() {
           case NewHighestOffer(_, _, _) => true
         }
-        buyer2.expectMsg(max=scale(50 seconds), obj=YouWon)
+        buyer2.expectMsg(max=50 seconds, obj=YouWon)
       }
     }
 
@@ -69,12 +73,9 @@ class MainSpec extends TestKit(ActorSystem("AuctionSpec")) with ImplicitSender w
       val buyer1 = TestProbe("buyer1")
       val buyer2 = TestProbe("buyer2")
       val seller = TestProbe("seller")
-      val auction = system.actorOf(Props(classOf[Auction], Item(13.0f, seller.ref), List(buyer1, buyer2)), "A2")
+      val auction = system.actorOf(Props(classOf[Auction], Item(13.0f, seller.ref), List(buyer1.ref, buyer2.ref)), "A2")
 
       buyer1.send(auction, Bid(14.0f, buyer1.ref))
-      buyer1.expectMsgPF() {
-        case NewHighestOffer(newOffer, bidder, auc) if newOffer == 14.0f && bidder == buyer1.ref && auc == auction => true
-      }
       buyer2.expectMsgPF() {
         case NewHighestOffer(newOffer, bidder, auc) if newOffer == 14.0f && bidder == buyer1.ref && auc == auction => true
       }
@@ -82,7 +83,7 @@ class MainSpec extends TestKit(ActorSystem("AuctionSpec")) with ImplicitSender w
   }
 
 
-  "Auction search" must {
+"Auction search" must {
 
     "allow adding auctions" in {
       val aucSearch = system.actorOf(Props(classOf[AuctionSearch], List.empty[ActorRef]))

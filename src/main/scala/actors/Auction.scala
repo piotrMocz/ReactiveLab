@@ -17,13 +17,14 @@ class Auction(var itemInit: Item, var bidders: List[ActorRef]) extends FSM[Aucti
   println("Creating the actors.Auction state machine")
   startWith(Created, NoBid(itemInit))
 
-  when(Created, stateTimeout = scale(10 seconds)) {
+  when(Created, stateTimeout = 10 seconds) {
     case Event(Bid(amount, bidder), NoBid(item)) =>
       println("[Created] checking the minimum offer...")
       if (amount < item.minPrice) stay using NoBid(item)
       else {
         // add bidder to the list:
         bidders = bidder :: bidders
+        bidders.foreach { bdr => bdr ! NewHighestOffer(amount, bidder, self) }
         goto(Activated) using Bids(amount, bidder, 1, item)
       }
 
@@ -32,7 +33,7 @@ class Auction(var itemInit: Item, var bidders: List[ActorRef]) extends FSM[Aucti
       goto(Ignored) using NoBid(item)
   }
 
-  when(Ignored, stateTimeout = scale(30 seconds)) {
+  when(Ignored, stateTimeout = 30 seconds) {
     case Event(Relist, NoBid(item)) =>
       println("[Ignored] Relisting...")
       goto(Created) using NoBid(item)
@@ -46,7 +47,7 @@ class Auction(var itemInit: Item, var bidders: List[ActorRef]) extends FSM[Aucti
       stay using st
   }
 
-  when(Activated, stateTimeout = scale(10 seconds)) {
+  when(Activated, stateTimeout = 10 seconds) {
     case Event(Bid(amount, bidder), Bids(bestBid, bestBidder, cnt, item)) =>
       println("[Activated] checking if the offer is better...")
 
@@ -68,7 +69,7 @@ class Auction(var itemInit: Item, var bidders: List[ActorRef]) extends FSM[Aucti
       goto(ItemSold) using NoWinner(item)
   }
 
-  when(ItemSold, stateTimeout = scale(10 seconds)) {
+  when(ItemSold, stateTimeout = 10 seconds) {
     case Event(StateTimeout, Winner(bestBid, bestBidder, bidCnt, item)) =>
       println("[Sold] SOLD! Contacting both parties...")
       item.seller ! Sold(bestBid, bestBidder)
