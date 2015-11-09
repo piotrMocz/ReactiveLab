@@ -23,14 +23,14 @@ object Main extends App {
   aucsearch ! Search("sprzedam")
 
 
-  //  println("actors.Auction search path: " + aucsearch.path)
+  //  println("actors.persistent.Auction search path: " + aucsearch.path)
   //  val lookedUp = system.actorSelection("/user/auctionSearch")
   //  println("Selection:\n" + lookedUp)
 
   //  val item1 = Item(13.0f, seller)
   //  val item2 = Item(100.0f, seller)
-  //  val auction1 = system.actorOf(Props(classOf[actors.Auction], Item(13.0f, seller)), "A1")
-  //  val auction2 = system.actorOf(Props(classOf[actors.Auction], Item(133.0f, seller)), "A2")
+  //  val auction1 = system.actorOf(Props(classOf[actors.persistent.Auction], Item(13.0f, seller)), "A1")
+  //  val auction2 = system.actorOf(Props(classOf[actors.persistent.Auction], Item(133.0f, seller)), "A2")
   //
   //  val buyer1 = system.actorOf(Props(classOf[actors.Buyer], List(auction1, auction2), "Henryk"))
   //  val buyer2 = system.actorOf(Props(classOf[actors.Buyer], List(auction1, auction2), "Janina"))

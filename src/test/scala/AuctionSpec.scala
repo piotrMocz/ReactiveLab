@@ -5,10 +5,10 @@ import scala.concurrent.duration._
 
 import language.postfixOps
 
-import actors.{Buyer, Seller, AuctionSearch, Auction}
+import actors._
 import data._
 
-class MainSpec extends TestKit(ActorSystem("AuctionSpec")) with ImplicitSender with WordSpecLike with BeforeAndAfterAll {
+class AuctionSpec extends TestKit(ActorSystem("AuctionSpec")) with ImplicitSender with WordSpecLike with BeforeAndAfterAll {
 
   override def afterAll(): Unit = {
     system.terminate()
@@ -54,7 +54,7 @@ class MainSpec extends TestKit(ActorSystem("AuctionSpec")) with ImplicitSender w
 
     "award the win to the highest bidder" in {
       val seller = TestProbe("seller")
-      val auction = system.actorOf(Props(classOf[Auction], Item(13.0f, seller.ref)), "A1")
+      val auction = system.actorOf(Props(classOf[Auction], Item(13.0f, seller.ref)), "A2")
       val buyer1 = TestProbe("buyer1")
       val buyer2 = TestProbe("buyer2")
 
@@ -73,7 +73,7 @@ class MainSpec extends TestKit(ActorSystem("AuctionSpec")) with ImplicitSender w
       val buyer1 = TestProbe("buyer1")
       val buyer2 = TestProbe("buyer2")
       val seller = TestProbe("seller")
-      val auction = system.actorOf(Props(classOf[Auction], Item(13.0f, seller.ref), List(buyer1.ref, buyer2.ref)), "A2")
+      val auction = system.actorOf(Props(classOf[Auction], Item(13.0f, seller.ref), List(buyer1.ref, buyer2.ref)), "A3")
 
       buyer1.send(auction, Bid(14.0f, buyer1.ref))
       buyer2.expectMsgPF() {
