@@ -4,25 +4,24 @@
 
 import akka.event.LoggingReceive
 import akka.actor._
+import data.Item
 import scala.concurrent.duration._
-
-import scala.util.Random
 import language.postfixOps
-
-import actors._
-import data._
+import actors.persistent._
+import actors.Seller
 
 
 object Main extends App {
   val system = ActorSystem("AuctionSystem")
 
   val seller = system.actorOf(Props[Seller])
-  val aucsearch = system.actorOf(Props(classOf[AuctionSearch], List.empty[ActorRef]), "auctionSearch")
+  //val aucsearch = system.actorOf(Props(classOf[PersistentAuctionSearch], List.empty[ActorRef]), "auctionSearch")
 
-  seller ! AddAuction("sprzedam opla", 100.0f)
-  aucsearch ! Search("sprzedam")
+  val auction = system.actorOf(Props(classOf[PersistentAuction], "aukcyja", Item(10.0f, seller)))
+  //seller ! AddAuction("sprzedam opla", 100.0f)
+  //aucsearch ! Search("sprzedam")
 
-
+  system.terminate()
   //  println("actors.persistent.Auction search path: " + aucsearch.path)
   //  val lookedUp = system.actorSelection("/user/auctionSearch")
   //  println("Selection:\n" + lookedUp)

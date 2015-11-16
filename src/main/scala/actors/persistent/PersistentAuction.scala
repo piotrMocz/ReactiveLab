@@ -26,12 +26,11 @@ import scala.reflect._
  */
 
 
-class PersistentAuction(var itemInit: Item, var bidders: List[ActorRef]) extends PersistentFSM[PersistentAuctionState, PersistentAuctionData, PersistentAuctionEvent] {
-  def this(ii: Item) = this(ii, List.empty[ActorRef])
+class PersistentAuction(val title: String, itemInit: Item) extends PersistentFSM[PersistentAuctionState, PersistentAuctionData, PersistentAuctionEvent] {
 
   override def domainEventClassTag: ClassTag[PersistentAuctionEvent] = classTag[PersistentAuctionEvent]
 
-  override def persistenceId: String = "persistent-auction-fsm-id-1"
+  override def persistenceId: String = "persistent-auction-fsm-" + title
 
   override def applyEvent(domainEvent: PersistentAuctionEvent,
                           currentData: PersistentAuctionData): PersistentAuctionData = domainEvent match {
@@ -48,81 +47,71 @@ class PersistentAuction(var itemInit: Item, var bidders: List[ActorRef]) extends
   startWith(Created, NoBid(itemInit))
 
   when(Created, stateTimeout = 10 seconds) {
-    case Event(b@Bid(amount, bidder), data) =>
-      println("[Created] checking the minimum offer...")
-      if (amount < data.getItem.minPrice) stay applying DoNotBid
-      else {
-        // add bidder to the list:
-        bidders = bidder :: bidders
-        bidders.foreach { bdr => bdr ! NewHighestOffer(amount, bidder, self) }
-        goto(Activated) applying MakeBid(b) // Bids(amount, bidder, 1, item)
+    case Event(b@Bid(amount, bidder), data) if amount < data.getItem.minPrice => stay applying DoNotBid andThen { _ =>
+      println("[Created] Minimum offer not reached, staying")
+    }
+
+    case Event(b@Bid(amount, bidder), data) => goto(Activated) applying MakeBid(b) andThen { _ =>
+        println("[Created] Got a bid! Going to activated and notifying watchers")
+        data.getBidders.foreach { bdr => bdr ! NewHighestOffer(amount, bidder, self) }
+      }
+
+    case Event(StateTimeout, _) => goto(Ignored) applying DoNotBid andThen { _ =>
+      println("[Created] timed out with no winner...")
+    }
+  }
+
+  when(Ignored, stateTimeout = 10 seconds) {
+    case Event(Relist, _) =>
+      goto(Created) applying DoNotBid andThen { _ =>
+        println("[Ignored] Relisting...")
       }
 
     case Event(StateTimeout, _) =>
-      println("[Created] timed out with no winner...")
-      goto(Ignored) applying DoNotBid
-
-    case _ => println("Dupa"); stop()
-  }
-
-  when(Ignored, stateTimeout = 30 seconds) {
-    case Event(Relist, _) =>
-      println("[Ignored] Relisting...")
-      goto(Created) applying DoNotBid
-
-    case Event(StateTimeout, _) =>
-      println("[Ignored] Ignored timed out, finishing auction.")
-      goto(ItemSold) applying DoNotBid
+      goto(ItemSold) applying HaveNoWinner andThen { _ =>
+        println("[Ignored] Ignored timed out, finishing auction.")
+      }
 
     case Event(_, _) =>
-      println("[Ignored] Staying in the ignored state...")
-      stay applying DoNotBid
+      stay applying DoNotBid andThen { _ =>
+        println("[Ignored] Staying in the ignored state...")
+      }
   }
 
   when(Activated, stateTimeout = 10 seconds) {
-    case Event(b@Bid(amount, bidder), data) =>
-      println("[Activated] checking if the offer is better...")
+    case Event(b@Bid(amount, bidder), data) if amount <= data.getBestBid =>
+       stay applying DoNotBid // using Bids(bestBid, bestBidder, cnt, item)
 
-      if (amount <= data.getBestBid) stay applying DoNotBid // using Bids(bestBid, bestBidder, cnt, item)
-      else {
-        // add bidder if not in the list:
-        if (!bidders.contains(bidder)) bidders = bidder :: bidders
+    case Event(b@Bid(amount, bidder), data) => goto(Activated) applying MakeBid(b) andThen { _ => // using Bids(amount, bidder, cnt+1, item)
         // notify bidders of a new highest offer:
-        bidders.foreach { bdr => bdr ! NewHighestOffer(amount, bidder, self) }
-        goto(Activated) applying MakeBid(b) // using Bids(amount, bidder, cnt+1, item)
+        data.getBidders.foreach { bdr => bdr ! NewHighestOffer(amount, bidder, self) }
       }
 
     case Event(StateTimeout, data) =>
-      println("[Activated] we have a winner!")
-
-      goto(ItemSold) applying RecognizeWinner // using Winner(bestBid, bestBidder, cnt, item)
-
-    case Event(StateTimeout, _) =>
-      println("[Activated] no winner, awaiting termination...")
-      goto(ItemSold) applying HaveNoWinner // using NoWinner(item)
+      goto(ItemSold) applying RecognizeWinner andThen { _ =>
+        println("[Activated] we have a winner!")
+      } // using Winner(bestBid, bestBidder, cnt, item)
   }
 
   when(ItemSold, stateTimeout = 10 seconds) {
-    case Event(StateTimeout, data) =>
+    case Event(StateTimeout, data) => stop() andThen { _ =>
       println("[Sold] SOLD! Contacting both parties...")
       data.getItem.seller ! Sold(data.getBestBid, data.getBestBidder)
       data.getBestBidder ! YouWon
-      stop()
+    }
 
-    case Event(StateTimeout, data) =>
+    case Event(StateTimeout, data) => stop() andThen { _ =>
       println("[Sold] not sold, deleting auction")
       data.getItem.seller ! NotSold
-      stop()
+    }
 
-    case ev =>
-      println("Unknown event: "  + ev +  ", terminating anyway.")
-      stop()
+    case ev => stop()
   }
 
   whenUnhandled {
-    case Event(ev, dt) =>
+    case Event(ev, dt) => stop() andThen { _ =>
       println("Got unknown event: " + ev + " with data: " + dt)
-      stop()
+    }
   }
 
   onTermination {

@@ -37,7 +37,7 @@ class PersistentAuctionSpec extends TestKit(ActorSystem("AuctionSpec")) with Imp
 
     "notify seller and buyer when there is a winner" in {
       val seller = TestProbe("seller")
-      val auction = system.actorOf(Props(classOf[PersistentAuction], Item(13.0f, seller.ref)), "A1")
+      val auction = system.actorOf(Props(classOf[PersistentAuction], "A1", Item(13.0f, seller.ref)), "A1")
       val buyer = TestProbe("buyer") // system.actorOf(Props(classOf[actors.Buyer], List(auction), "Henryk"))
 
       within(51 seconds) {
@@ -56,7 +56,7 @@ class PersistentAuctionSpec extends TestKit(ActorSystem("AuctionSpec")) with Imp
 
     "award the win to the highest bidder" in {
       val seller = TestProbe("seller")
-      val auction = system.actorOf(Props(classOf[PersistentAuction], Item(13.0f, seller.ref)), "A2")
+      val auction = system.actorOf(Props(classOf[PersistentAuction], "A2", Item(13.0f, seller.ref)), "A2")
       val buyer1 = TestProbe("buyer1")
       val buyer2 = TestProbe("buyer2")
 
@@ -75,7 +75,7 @@ class PersistentAuctionSpec extends TestKit(ActorSystem("AuctionSpec")) with Imp
       val buyer1 = TestProbe("buyer1")
       val buyer2 = TestProbe("buyer2")
       val seller = TestProbe("seller")
-      val auction = system.actorOf(Props(classOf[PersistentAuction], Item(13.0f, seller.ref), List(buyer1.ref, buyer2.ref)), "A3")
+      val auction = system.actorOf(Props(classOf[PersistentAuction], "A3", Item(13.0f, seller.ref), List(buyer1.ref, buyer2.ref)), "A3")
 
       buyer1.send(auction, Bid(14.0f, buyer1.ref))
       buyer2.expectMsgPF() {

@@ -12,6 +12,7 @@ sealed trait PersistentAuctionData {
   def getItem: Item
   def getBestBid: Float = getItem.minPrice
   def getBestBidder: ActorRef = null
+  def getBidders : List[ActorRef] = List.empty[ActorRef]
   def makeBid(bid: Bid): PersistentAuctionData
   def emptyData(item: Item): PersistentAuctionData = NoBid(item)
   def awardWin: PersistentAuctionData = {
@@ -25,17 +26,18 @@ sealed trait PersistentAuctionData {
 }
 
 case class NoBid(item: Item) extends PersistentAuctionData {
-  def makeBid(bid: Bid): Bids = Bids(bid.amount, bid.bidder, 1, item)
+  def makeBid(bid: Bid): Bids = Bids(bid.amount, bid.bidder, List(bid.bidder), 1, item)
   override def noWinner: NoWinner = NoWinner(item)
   override def getItem: Item = item
 }
 
-case class Bids(bestBid: Float, bestBidder: ActorRef, bidCnt: Int, item: Item) extends PersistentAuctionData {
-  def makeBid(bid: Bid): Bids = Bids(bid.amount, bid.bidder, bidCnt+1, item)
+case class Bids(bestBid: Float, bestBidder: ActorRef, bidders: List[ActorRef], bidCnt: Int, item: Item) extends PersistentAuctionData {
+  def makeBid(bid: Bid): Bids = Bids(bid.amount, bid.bidder, bid.bidder :: bidders, bidCnt+1, item)
   override def awardWin: Winner = Winner(bestBid, bestBidder, bidCnt, item)
   override def getItem: Item = item
   override def getBestBid: Float = bestBid
   override def getBestBidder: ActorRef = bestBidder
+  override def getBidders: List[ActorRef] = bidders
 }
 
 case class Winner(bestBid: Float, bestBidder: ActorRef, bidCnt: Int, item: Item) extends PersistentAuctionData {

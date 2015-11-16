@@ -21,7 +21,8 @@ class PersistentAuctionSearch(var auctions: List[ActorRef]) extends Actor {
 
     case AddAuction(name, minPr) =>
       println("[actors.AuctionSearch] Adding auction: " + name)
-      val newAuc = context.actorOf(Props(classOf[PersistentAuction], Item(minPr, sender())), name.filter(_.isLetterOrDigit))
+      val validName: String = name.filter(_.isLetterOrDigit)
+      val newAuc = context.actorOf(Props(classOf[PersistentAuction], validName, Item(minPr, sender())), validName)
       auctions = newAuc :: auctions
       sender ! SearchResult(auctions)
   }
