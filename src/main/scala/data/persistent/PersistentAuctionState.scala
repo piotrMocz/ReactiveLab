@@ -9,21 +9,21 @@ import akka.persistence.fsm.PersistentFSM.FSMState
 sealed trait PersistentAuctionState extends FSMState
 
 case object Created extends PersistentAuctionState {
-  override def identifier: String = "Created"
+  override def identifier: String = "created"
 }
 
 case object Activated extends PersistentAuctionState  {
-  override def identifier: String = "Activated"
+  override def identifier: String = "activated"
 }
 
 case object Ignored extends PersistentAuctionState  {
-  override def identifier: String = "Ignored"
+  override def identifier: String = "ignored"
 }
 
 case object ItemSold extends PersistentAuctionState  {
-  override def identifier: String = "ItemSold"
+  override def identifier: String = "itemsold"
 }
 
 case object Finished extends PersistentAuctionState  {
-  override def identifier: String = "Finished"
+  override def identifier: String = "finished"
 }

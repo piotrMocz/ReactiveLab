@@ -26,19 +26,19 @@ import scala.reflect._
  */
 
 
-class PersistentAuction(val title: String, itemInit: Item) extends PersistentFSM[PersistentAuctionState, PersistentAuctionData, PersistentAuctionEvent] {
+class PersistentAuction(title: String, itemInit: Item) extends PersistentFSM[PersistentAuctionState, PersistentAuctionData, PersistentAuctionEvent] {
 
   override def domainEventClassTag: ClassTag[PersistentAuctionEvent] = classTag[PersistentAuctionEvent]
 
-  override def persistenceId: String = "persistent-auction-fsm-" + title
+  override def persistenceId: String = "persistent-auction-fsm-1" + title
 
   override def applyEvent(domainEvent: PersistentAuctionEvent,
                           currentData: PersistentAuctionData): PersistentAuctionData = domainEvent match {
-    case MakeBid(bid)    => print("Current data: " + currentData + "  -->  "); println("[applyEvent] handling MakeBid"); currentData.makeBid(bid)
-    case DoNotBid        => print("Current data: " + currentData + "  -->  "); println("[applyEvent] handling DoNotBid"); currentData
-    case RecognizeWinner => print("Current data: " + currentData + "  -->  "); println("[applyEvent] handling RecognizeWinner"); currentData.awardWin
-    case HaveNoWinner    => print("Current data: " + currentData + "  -->  "); println("[applyEvent] handling HaveNoWinner"); currentData.noWinner
-    case NullEvent       => print("Current data: " + currentData + "  -->  "); println("[applyEvent] handling NullEvent"); currentData
+    case MakeBid(bid)    => currentData.makeBid(bid)
+    case DoNotBid        => currentData
+    case RecognizeWinner => currentData.awardWin
+    case HaveNoWinner    => currentData.noWinner
+    case NullEvent       => currentData
   }
 
   // START THE FSM
@@ -80,7 +80,7 @@ class PersistentAuction(val title: String, itemInit: Item) extends PersistentFSM
 
   when(Activated, stateTimeout = 10 seconds) {
     case Event(b@Bid(amount, bidder), data) if amount <= data.getBestBid =>
-       stay applying DoNotBid // using Bids(bestBid, bestBidder, cnt, item)
+       stay applying DoNotBid
 
     case Event(b@Bid(amount, bidder), data) => goto(Activated) applying MakeBid(b) andThen { _ => // using Bids(amount, bidder, cnt+1, item)
         // notify bidders of a new highest offer:

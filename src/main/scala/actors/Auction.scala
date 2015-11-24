@@ -1,25 +1,23 @@
 package actors
 
-import akka.actor.{ActorRef, FSM}
+import akka.actor.{Props, ActorRef, FSM}
 import scala.concurrent.duration._
 
 import data._
 
-
-/**
- * Created by moczur on 11/2/15.
- */
+import scala.language.postfixOps
 
 
 class Auction(var itemInit: Item, var bidders: List[ActorRef]) extends FSM[AuctionState, AuctionData] {
   def this(ii: Item) = this(ii, List.empty[ActorRef])
-
+  val notifier = context.actorOf(Props[Notifier], "notifier")
   println("Creating the actors.Auction state machine")
   startWith(Created, NoBid(itemInit))
 
   when(Created, stateTimeout = 10 seconds) {
     case Event(Bid(amount, bidder), NoBid(item)) =>
       println("[Created] checking the minimum offer...")
+      notifier ! NotifyMsg("auction", bidder, amount)
       if (amount < item.minPrice) stay using NoBid(item)
       else {
         // add bidder to the list:
@@ -49,6 +47,7 @@ class Auction(var itemInit: Item, var bidders: List[ActorRef]) extends FSM[Aucti
 
   when(Activated, stateTimeout = 10 seconds) {
     case Event(Bid(amount, bidder), Bids(bestBid, bestBidder, cnt, item)) =>
+      notifier ! NotifyMsg("auction", bidder, amount)
       println("[Activated] checking if the offer is better...")
 
       if (amount <= bestBid) stay using Bids(bestBid, bestBidder, cnt, item)
