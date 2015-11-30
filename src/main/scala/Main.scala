@@ -43,8 +43,9 @@ object Main extends App {
   // system.scheduler.scheduleOnce(5 seconds, buyer1, BidOrder)
   // system.scheduler.scheduleOnce(6 seconds, buyer1, BidOrder)
 
-  auction1 ! Bid(16.0f, buyer1)
-  auction1 ! Bid(10.5f, buyer1)
+  system.scheduler.scheduleOnce(1 seconds, auction1, Bid(16.0f, buyer1))
+  system.scheduler.scheduleOnce(7 seconds, auction2, Bid(18.0f, buyer1))
+//  auction1 ! Bid(10.5f, buyer1)
 
   system.awaitTermination()
 }

@@ -13,7 +13,7 @@ class Notifier extends Actor with ActorLogging {
   override val supervisorStrategy =
     OneForOneStrategy(maxNrOfRetries = 100) {
       // case _: IllegalStateException => log.error("!!!!!!!RESTARTING!!!!!!!"); Restart
-      case _: Exception => log.error("STOPPING"); Stop
+      case _: Exception => log.error("[Notifier] RESTARTING"); Restart
     }
 
   def receive = {
